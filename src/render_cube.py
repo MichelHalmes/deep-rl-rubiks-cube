@@ -1,5 +1,9 @@
+import shutil
+from os import path, makedirs, listdir
+
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
+from PIL import Image
 
 from cube_wrapper import MyCube
 
@@ -16,10 +20,11 @@ COLOR_DICT = {
     "R": "#cf0000"
 }
 
-def plot_cube(cube):
+def plot_cube(cube, file_path="data/cube.png"):
     fig, ax = _init_fig(cube.SIZE)
     _draw_sides(cube, ax)
-    fig.savefig("data/cube.png", dpi=865 / cube.SIZE)
+    fig.savefig(file_path, dpi=865 / cube.SIZE)
+    plt.close(fig)
 
 
 def _init_fig(cube_size):
@@ -55,7 +60,48 @@ def _draw_sides(cube, ax):
         ax.text(X0 + 0.5, Y0 + 0.5, name , color=LABEL_COLOR, ha="center", va="center", fontsize=10)
 
 
+from contextlib import ContextDecorator
+
+
+class GifRecorder(ContextDecorator):
+    DATA_DIR = "./data"
+
+    def __enter__(self):
+        self._tmp_dir = self._init_tmp_dir()
+        self._frame_idx = 0
+        return self
+
+    def _init_tmp_dir(self):
+        tmp_dir = path.join(self.DATA_DIR, "tmp")
+        if path.exists(tmp_dir):
+            shutil.rmtree(tmp_dir)
+        makedirs(tmp_dir)
+        return tmp_dir
+
+    def add_frame(self, cube):
+        file_id = str(self._frame_idx).zfill(4)
+        file_path = path.join(self._tmp_dir, f"cube_{file_id}.png")
+        plot_cube(cube, file_path)
+        self._frame_idx += 1
+
+    def __exit__(self, *exc):
+        print("Generating GIF")
+        images = [Image.open(path.join(self._tmp_dir, f)) \
+                    for f in sorted(listdir(self._tmp_dir))]
+        gif_path = path.join(self.DATA_DIR, "cube.gif")
+        images[0].save(fp=gif_path, format='GIF', append_images=images[1:], save_all=True, duration=200) #, duration=200, loop=0)
+        return False
+
+
 if __name__ == "__main__":
     cube = MyCube()
     cube.shuffle()
+    from copy import deepcopy
+    cube_copy = deepcopy(cube)
+    solution = cube.get_solution()
     plot_cube(cube)
+    with GifRecorder() as recorder:
+        for move in solution:
+            cube_copy.step(move)
+            recorder.add_frame(cube_copy)
+    # plot_cube(cube)
