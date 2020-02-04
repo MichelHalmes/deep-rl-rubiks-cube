@@ -1,11 +1,15 @@
 import random 
 import logging
+from collections import namedtuple
 
-from rubik.cube import Cube
+import numpy as np
+
+from rubik.cube import Cube, RIGHT, LEFT, UP, DOWN, FRONT, BACK 
 from rubik.solve import Solver
 from rubik.optimize import optimize_moves
 
-
+Sides = namedtuple("Sides", ["right", "left", "up", "down", "front", "back"])
+ 
 _SOLVED_CUBE_STR = "OOOOOOOOOYYYWWWGGGBBBYYYWWWGGGBBBYYYWWWGGGBBBRRRRRRRRR"
 _MOVES = ["L", "R", "U", "D", "F", "B", "M", "E", "S", "X", "Y", "Z"]
 
@@ -14,6 +18,8 @@ class MyCube(object):
     """ Adapts the rubiks cube to our purposes """
 
     MOVES = _MOVES + [f"{m}i" for m in _MOVES]
+    # FACES = [RIGHT, LEFT, UP, DOWN, FRONT, BACK]
+    SIZE = 3
 
     def __init__(self):
         self._cube = Cube(_SOLVED_CUBE_STR)
@@ -36,6 +42,22 @@ class MyCube(object):
 
     def is_done(self):
         return self._cube.is_solved()
+
+    @classmethod
+    def _format_side(cls, color_list):
+        return np.asarray(color_list).reshape((cls.SIZE, cls.SIZE))
+
+    def get_state(self):
+        right = [p.colors[0] for p in sorted(self._cube._face(RIGHT), key=lambda p: (-p.pos.y, -p.pos.z))]
+        left  = [p.colors[0] for p in sorted(self._cube._face(LEFT),  key=lambda p: (-p.pos.y, p.pos.z))]
+        up    = [p.colors[1] for p in sorted(self._cube._face(UP),    key=lambda p: (p.pos.z, p.pos.x))]
+        down  = [p.colors[1] for p in sorted(self._cube._face(DOWN),  key=lambda p: (-p.pos.z, p.pos.x))]
+        front = [p.colors[2] for p in sorted(self._cube._face(FRONT), key=lambda p: (-p.pos.y, p.pos.x))]
+        back  = [p.colors[2] for p in sorted(self._cube._face(BACK),  key=lambda p: (-p.pos.y, -p.pos.x))]
+        
+        sides_fromated = [self._format_side(color_list) for color_list in (right, left, up, down, front, back)]
+        return Sides(*sides_fromated)
+
 
 
 if __name__ == "__main__":
