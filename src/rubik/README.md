@@ -1,0 +1,1 @@
+Copied from [Paul Glass](https://github.com/pglass/cube)
