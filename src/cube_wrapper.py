@@ -26,6 +26,7 @@ class MyCube(object):
         self._cube = Cube(_SOLVED_CUBE_STR)
 
     def reset(self, steps=200):
+        self._cube = Cube(_SOLVED_CUBE_STR)
         shuffle_moves = " ".join(random.choices(self.ACTIONS, k=steps))
         self._cube.sequence(shuffle_moves)
     

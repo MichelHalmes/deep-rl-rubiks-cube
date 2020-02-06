@@ -1,9 +1,12 @@
 import shutil
 from os import path, makedirs, listdir
+from contextlib import ContextDecorator
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from PIL import Image
+
+import config
 
 
 EPS = .05
@@ -59,11 +62,8 @@ def _draw_sides(cube, ax):
         ax.text(X0 + 0.5, Y0 + 0.5, name , color=LABEL_COLOR, ha="center", va="center", fontsize=10)
 
 
-from contextlib import ContextDecorator
-
 
 class GifRecorder(ContextDecorator):
-    DATA_DIR = "./data"
 
     def __enter__(self):
         self._tmp_dir = self._init_tmp_dir()
@@ -71,7 +71,7 @@ class GifRecorder(ContextDecorator):
         return self
 
     def _init_tmp_dir(self):
-        tmp_dir = path.join(self.DATA_DIR, "tmp")
+        tmp_dir = path.join(config.DATA_DIR, "tmp")
         if path.exists(tmp_dir):
             shutil.rmtree(tmp_dir)
         makedirs(tmp_dir)
@@ -87,8 +87,8 @@ class GifRecorder(ContextDecorator):
         print("Generating GIF")
         images = [Image.open(path.join(self._tmp_dir, f)) \
                     for f in sorted(listdir(self._tmp_dir))]
-        gif_path = path.join(self.DATA_DIR, "cube.gif")
-        images[0].save(fp=gif_path, format='GIF', append_images=images[1:], save_all=True, duration=200) #, duration=200, loop=0)
+        gif_path = path.join(config.DATA_DIR, "cube.gif")
+        images[0].save(fp=gif_path, format='GIF', append_images=images[1:], save_all=True, duration=200)
         return False
 
 
