@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from PIL import Image
 
-from cube_wrapper import MyCube
 
 EPS = .05
 EPS_1 = 1. + EPS
@@ -54,7 +53,7 @@ def _draw_sides(cube, ax):
         X0, Y0 = offsets
         for x_idx in range(cube.SIZE):
             for y_idx in range(cube.SIZE):
-                color = COLOR_DICT[side[x_idx, y_idx]]
+                color = COLOR_DICT[side[-y_idx-1, x_idx]]
                 ax.add_artist(Rectangle((X0 + x_idx*cubie_size, Y0 + y_idx*cubie_size), 
                                 cubie_size, cubie_size, ec=PLASTIC_COLOR, fc=color))
         ax.text(X0 + 0.5, Y0 + 0.5, name , color=LABEL_COLOR, ha="center", va="center", fontsize=10)
@@ -94,14 +93,16 @@ class GifRecorder(ContextDecorator):
 
 
 if __name__ == "__main__":
-    cube = MyCube()
-    cube.shuffle()
     from copy import deepcopy
+    from cube_wrapper import MyCube
+
+    cube = MyCube()
+    cube.reset()
     cube_copy = deepcopy(cube)
     solution = cube.get_solution()
-    plot_cube(cube)
+
     with GifRecorder() as recorder:
         for move in solution:
             cube_copy.step(move)
             recorder.add_frame(cube_copy)
-    # plot_cube(cube)
+

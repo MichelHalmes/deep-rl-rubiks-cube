@@ -11,34 +11,35 @@ from rubik.optimize import optimize_moves
 Sides = namedtuple("Sides", ["right", "left", "up", "down", "front", "back"])
  
 _SOLVED_CUBE_STR = "OOOOOOOOOYYYWWWGGGBBBYYYWWWGGGBBBYYYWWWGGGBBBRRRRRRRRR"
-_MOVES = ["L", "R", "U", "D", "F", "B", "M", "E", "S", "X", "Y", "Z"]
+_ACTIONS = ["L", "R", "U", "D", "F", "B", "M", "E", "S", "X", "Y", "Z"]
 
 
 class MyCube(object):
     """ Adapts the rubiks cube to our purposes """
 
-    MOVES = _MOVES + [f"{m}i" for m in _MOVES]
+    COLORS = list(set(_SOLVED_CUBE_STR))
+    ACTIONS = _ACTIONS + [f"{m}i" for m in _ACTIONS]
     # FACES = [RIGHT, LEFT, UP, DOWN, FRONT, BACK]
     SIZE = 3
 
     def __init__(self):
         self._cube = Cube(_SOLVED_CUBE_STR)
 
-    def shuffle(self, steps=200):
-        scramble_moves = " ".join(random.choices(self.MOVES, k=steps))
-        self._cube.sequence(scramble_moves)
+    def reset(self, steps=200):
+        shuffle_moves = " ".join(random.choices(self.ACTIONS, k=steps))
+        self._cube.sequence(shuffle_moves)
     
-    def step(self, move):
-        move_f = getattr(self._cube, move)
-        move_f()
+    def step(self, action):
+        action_f = getattr(self._cube, action)
+        action_f()
 
     def get_solution(self):
         solver = Solver(self._cube)
         solver.solve()
         assert self.is_done()
-        opt_moves = optimize_moves(solver.moves)
+        optimized = optimize_moves(solver.moves)
         
-        return opt_moves
+        return optimized
 
     def is_done(self):
         return self._cube.is_solved()
@@ -62,7 +63,7 @@ class MyCube(object):
 
 if __name__ == "__main__":
     cube = MyCube()
-    cube.shuffle()
+    cube.reset()
     solution = cube.get_solution()
     print(f"Solved in {len(solution)} moves")
     assert cube.is_done()
