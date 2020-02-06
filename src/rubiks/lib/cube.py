@@ -3,12 +3,12 @@ import textwrap
 
 from .maths import Point, Matrix
 
-RIGHT = X_AXIS = Point(1, 0, 0)
-LEFT           = Point(-1, 0, 0)
-UP    = Y_AXIS = Point(0, 1, 0)
-DOWN           = Point(0, -1, 0)
-FRONT = Z_AXIS = Point(0, 0, 1)
-BACK           = Point(0, 0, -1)
+RIGHT = X_AXIS = Point((1, 0, 0))
+LEFT           = Point((-1, 0, 0))
+UP    = Y_AXIS = Point((0, 1, 0))
+DOWN           = Point((0, -1, 0))
+FRONT = Z_AXIS = Point((0, 0, 1))
+BACK           = Point((0, 0, -1))
 
 FACE = 'face'
 EDGE = 'edge'
@@ -62,7 +62,7 @@ class Piece:
         :param colors: A tuple of length three (x, y, z) where each component gives the color
             of the side of the piece on that axis (if it exists), or None.
         """
-        assert all(type(x) == int and x in (-1, 0, 1) for x in pos)
+        # assert all(type(x) == int and x in (-1, 0, 1) for x in pos) TODO
         assert len(colors) == 3
         self.pos = pos
         self.colors = list(colors)
@@ -90,9 +90,12 @@ class Piece:
         # we need to swap the positions of two things in self.colors so colors appear
         # on the correct faces. rot gives us the axes to swap between.
         rot = self.pos - before
-        if not any(rot):
+
+        count_0 = rot.count(0)
+        # if not any(rot):
+        if count_0 == 3:
             return  # no change occurred
-        if rot.count(0) == 2:
+        if count_0 == 2:
             rot += matrix * rot
 
         assert rot.count(0) == 1, (
@@ -102,7 +105,7 @@ class Piece:
             f"\nrot: {rot}"
         )
 
-        i, j = (i for i, x in enumerate(rot) if x != 0)
+        i, j = (i for i, x in enumerate(rot._array) if x != 0)  # TODO
         self.colors[i], self.colors[j] = self.colors[j], self.colors[i]
 
 
@@ -206,8 +209,11 @@ class Cube:
         :param plane: A sum of any two of X_AXIS, Y_AXIS, Z_AXIS (e.g. X_AXIS + Y_AXIS)
         :return: A list of Pieces in the given plane
         """
-        assert plane.count(0) == 1
-        i = next((i for i, x in enumerate(plane) if x == 0))
+        # assert plane.count(0) == 1
+        # i = next((i for i, x in enumerate(plane) if x == 0))
+        zero_idxs = plane.find(0)
+        assert len(zero_idxs) == 1
+        i = zero_idxs[0]
         return [p for p in self.pieces if p.pos[i] == 0]
 
     def _rotate_face(self, face, matrix):
@@ -262,19 +268,24 @@ class Cube:
                 and all(c in p.colors for c in colors):
                 return p
 
-    def get_piece(self, x, y, z):
-        """
-        :return: the Piece at the given Point
-        """
-        point = Point(x, y, z)
+    def __getitem__(self, point):
         for p in self.pieces:
             if p.pos == point:
                 return p
 
-    def __getitem__(self, *args):
-        if len(args) == 1:
-            return self.get_piece(*args[0])
-        return self.get_piece(*args)
+    # def get_piece(self, point):
+    #     """
+    #     :return: the Piece at the given Point
+    #     """
+    #     point = Point((x, y, z))
+    #     for p in self.pieces:
+    #         if p.pos == point:
+    #             return p
+
+    # def __getitem__(self, *args):
+    #     if len(args) == 1:
+    #         return self.get_piece(*args[0])
+    #     return self.get_piece(*args)
 
     def __eq__(self, other):
         return isinstance(other, Cube) and self._color_list() == other._color_list()
