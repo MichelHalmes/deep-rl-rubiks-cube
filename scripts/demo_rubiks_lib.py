@@ -4,12 +4,10 @@ from os import path
 import random
 import time
 
-sys.path.append(path.abspath(path.join(__file__, "../../src")))
-
-from rubik import solve
-from rubik.cube import Cube
-from rubik.solve import Solver
-from rubik.optimize import optimize_moves
+from src.rubiks.lib import solve
+from src.rubiks.lib.cube import Cube
+from src.rubiks.lib.solve import Solver
+from src.rubiks.lib.optimize import optimize_moves
 
 SOLVED_CUBE_STR = "OOOOOOOOOYYYWWWGGGBBBYYYWWWGGGBBBYYYWWWGGGBBBRRRRRRRRR"
 MOVES = ["L", "R", "U", "D", "F", "B", "M", "E", "S"]
@@ -58,7 +56,10 @@ def run():
                   f" avg_moves={avg_moves:0.3f} avg_opt_moves={avg_opt_moves:0.3f}"
                   f" avg_time={avg_time:0.3f}s")
 
-
-if __name__ == '__main__':
+def main():
     solve.DEBUG = False
     run()
+
+if __name__ == '__main__':
+    main()
+    

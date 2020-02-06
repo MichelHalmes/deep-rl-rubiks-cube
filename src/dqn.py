@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import torch.nn as nn
 import numpy as np
 
-from utils import product
+from .utils import product
 
 
 

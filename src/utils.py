@@ -8,7 +8,7 @@ import time
 
 import torch as T
 
-import config
+from . import config
 
 Transition = namedtuple("Transition",
                         ["state", "action", "next_state", "reward", "done"])

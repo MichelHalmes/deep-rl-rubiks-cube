@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from PIL import Image
 
-import config
+from src import config
 
 
 EPS = .05
@@ -66,6 +66,7 @@ def _draw_sides(cube, ax):
 class GifRecorder(ContextDecorator):
 
     def __enter__(self):
+        print("Starting to record")
         self._tmp_dir = self._init_tmp_dir()
         self._frame_idx = 0
         return self
@@ -91,18 +92,4 @@ class GifRecorder(ContextDecorator):
         images[0].save(fp=gif_path, format='GIF', append_images=images[1:], save_all=True, duration=200)
         return False
 
-
-if __name__ == "__main__":
-    from copy import deepcopy
-    from cube_wrapper import MyCube
-
-    cube = MyCube()
-    cube.reset()
-    cube_copy = deepcopy(cube)
-    solution = cube.get_solution()
-
-    with GifRecorder() as recorder:
-        for move in solution:
-            cube_copy.step(move)
-            recorder.add_frame(cube_copy)
 

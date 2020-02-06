@@ -1,5 +1,4 @@
-import logging
-import sys
+
 import random
 from itertools import count
 
@@ -7,10 +6,9 @@ import torch as T
 from torch import optim
 import torch.nn.functional as F
 
-from dqn import DQN, get_transform_f
-from cube_wrapper import MyCube
-from utils import ReplayMemory, Transition, MetricsWriter, Timer
-import config
+from .dqn import DQN, get_transform_f
+from .utils import ReplayMemory, Transition, MetricsWriter, Timer
+from . import config
 
 
 device = T.device("cuda" if T.cuda.is_available() else "cpu")
@@ -40,6 +38,7 @@ class RlCubeSolver(object):
             metrics = self._train_episode(episode)
             metrics.update(**Timer.get_times_and_reset())
             writer.write(metrics)
+            print(episode, metrics["duration"], end="\r")
             if episode % config.TARGET_UPDATE == 0:
                 self._target_net.load_state_dict(self._policy_net.state_dict())
 
@@ -120,20 +119,6 @@ class RlCubeSolver(object):
         return state
 
 
-def main():
-    cube = MyCube()
-    rl_solver = RlCubeSolver(cube)
-    rl_solver.train()
-
-
-if __name__ == "__main__":
-    logging.basicConfig(
-        stream=sys.stdout,
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(message)s")
-
-    main()
-    
 
 
 

@@ -4,9 +4,9 @@ from collections import namedtuple
 
 import numpy as np
 
-from rubik.cube import Cube, RIGHT, LEFT, UP, DOWN, FRONT, BACK 
-from rubik.solve import Solver
-from rubik.optimize import optimize_moves
+from .lib.cube import Cube, RIGHT, LEFT, UP, DOWN, FRONT, BACK 
+from .lib.solve import Solver
+from .lib.optimize import optimize_moves
 
 Sides = namedtuple("Sides", ["right", "left", "up", "down", "front", "back"])
  
