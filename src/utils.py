@@ -5,6 +5,7 @@ from datetime import datetime
 import csv
 from contextlib import ContextDecorator
 import time
+import math
 
 import torch as T
 
@@ -13,11 +14,10 @@ from . import config
 Transition = namedtuple("Transition",
                         ["state", "action", "next_state", "reward", "done"])
 
-MAX_SIZE = 10000
 
 class ReplayMemory(object):
 
-    def __init__(self, max_size=MAX_SIZE):
+    def __init__(self, max_size=config.MEMORY_MAX_SIZE):
         self._max_size = max_size
         self._memory = []
         self._idx = 0
@@ -37,27 +37,96 @@ class ReplayMemory(object):
     def __len__(self):
         return len(self._memory)
 
+def fibonacci(n):
+    if n <= 1:
+        return n
+    prev, cur = 0, 1
+    for _ in range(1, n):
+        prev, cur = cur, prev + cur
+    return cur
+
+
+class Schedule(object):
+
+    def __init__(self):
+        self._difficulty = 1
+        self._diff_curr_steps = 0
+        self._diff_max_steps = config.DIFFICULTY_STEPS
+
+    def _next_difficulty(self):
+        # At every difficulty, we remain DIFFICULTY_STEPS longer in the level
+        self._diff_curr_steps += 1
+        if self._diff_curr_steps == self._diff_max_steps:
+            self._difficulty += 1
+            self._diff_curr_steps = 0
+            self._diff_max_steps = config.DIFFICULTY_STEPS*self._difficulty
+
+        return self._difficulty
+
+    def _next_epsilon(self):
+        decay = 1. - (self._diff_curr_steps / self._diff_max_steps)
+        epsilon = config.EPS_END + (config.EPS_START - config.EPS_END) * decay**.7
+        return round(epsilon, 3)
+
+    def _next_max_steps(self):
+        return config.MAX_STEPS * int(math.sqrt(self._difficulty))
+
+    def next_step(self):
+        difficulty = self._next_difficulty()
+        epsilon = self._next_epsilon()
+        max_steps = self._next_max_steps()
+        return difficulty, epsilon, max_steps
+
 
 class MetricsWriter(object):
+    _MA_NAMES = ["duration"]
 
     def __init__(self):
         stats_filename = datetime.now().strftime('%Y%m%d_%H%M') + ".csv"
         stats_path = path.join(config.DATA_DIR, "stats", stats_filename)
         self._csv_file = open(stats_path, "w")
         self._csv_writer =  None
+        self._ma_metrics = None
+
+    def _init_ma_metrics(self, metrics):
+        ma_metrics = {f"{name}_ma": metrics[name]
+                        for name in self._MA_NAMES}
+        return ma_metrics
 
     def _init_writer(self, field_names):
+        field_names = sorted(list(field_names) + list(self._ma_metrics.keys()))
         writer = csv.DictWriter(self._csv_file, fieldnames=field_names)
         writer.writeheader()
         return writer
 
     def write(self, metrics):
         if not self._csv_writer:
+            self._ma_metrics = self._init_ma_metrics(metrics)
             self._csv_writer = self._init_writer(metrics.keys())
+        self._update_ma_metrics(metrics)
         self._csv_writer.writerow(metrics)
         self._csv_file.flush()
 
+    def _update_ma_metrics(self, metrics):
+        for name in self._MA_NAMES:
+            ma_value = (1.- config.MA_ALPHA) * metrics[name] \
+                        + config.MA_ALPHA * self._ma_metrics[f"{name}_ma"]
+            self._ma_metrics[f"{name}_ma"] = round(ma_value, 3)
+        metrics.update(self._ma_metrics)
+
 class Timer(ContextDecorator):
+    """ USAGE:
+        with Timer("my_name"):
+            <do_things
+        
+        @Timer.decorate
+        def my_func():...
+
+        my_func()
+
+        Timer.get_times_and_reset()
+        >>> {"my_name": <time_ms>, "my_func": <time_ms>}
+    """
     _TIMES = defaultdict(list)
 
     def __init__(self, name):
@@ -71,8 +140,15 @@ class Timer(ContextDecorator):
         self._TIMES[self._name].append(exec_time)
 
     @classmethod
+    def decorate(cls, func):
+        def wrapper_f(*args, **kwargs):
+            with cls(func.__name__):
+                return func(*args, **kwargs)
+        return wrapper_f
+
+    @classmethod
     def get_times_and_reset(cls):
-        mean_times = {f"t_{name}": sum(times)/len(times) \
+        mean_times = {f"t_{name}": round(sum(times)/len(times), 3) \
                         for name, times in cls._TIMES.items()}
         cls._TIMES = defaultdict(list)
         return mean_times

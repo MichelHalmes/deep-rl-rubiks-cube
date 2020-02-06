@@ -7,7 +7,7 @@ from torch import optim
 import torch.nn.functional as F
 
 from .dqn import DQN, get_transform_f
-from .utils import ReplayMemory, Transition, MetricsWriter, Timer
+from .utils import ReplayMemory, Schedule, MetricsWriter, Timer
 from . import config
 
 
@@ -34,41 +34,38 @@ class RlCubeSolver(object):
 
     def train(self):
         writer = MetricsWriter()
+        schedule = Schedule()
         for episode in count():
-            metrics = self._train_episode(episode)
+            metrics = self._train_episode(episode, schedule)
             metrics.update(**Timer.get_times_and_reset())
             writer.write(metrics)
-            print(episode, metrics["duration"], end="\r")
+            print(episode, metrics["duration"], "\t", end="\r")
             if episode % config.TARGET_UPDATE == 0:
                 self._target_net.load_state_dict(self._policy_net.state_dict())
 
-    def _train_episode(self, episode):
-        difficulty = 1 + episode // config.DIFFICULTY_STEPS
+    def _train_episode(self, episode, schedule):
+        difficulty, epsilon, max_steps = schedule.next_step()
         self._cube.reset(steps=difficulty)
         # TODO: maybe add temporal dimension to state
 
         state = self._get_state_tensor()
-        for t in range(config.MAX_STEPS):
-            with Timer("select_action"):
-                epsilon = config.EPS_END + (config.EPS_START - config.EPS_END) * config.EPS_DECAY**episode
-                action = self._select_action(state, epsilon)
+        for t in range(max_steps):
+            action = self._select_action(state, epsilon)
             
-            with Timer("apply_action"):
-                next_state, reward, done = self._apply_action(action)
+            next_state, reward, done = self._apply_action(action)
             self._memory.push(state, action, next_state, reward, done)
             state = next_state
             
-            with Timer("optimize"):
-                self._optimize_model()
+            self._optimize_model()
             if done:
                 duration = t+1
                 break
         else:
-            duration = 2*config.MAX_STEPS
+            duration = 2*max_steps
 
         return {"_episode": episode, "duration": duration, "difficulty": difficulty, "epsilon": epsilon}
 
-
+    @Timer.decorate
     def _select_action(self, state, epsilon):
         if random.random() > epsilon:
             state_batch = T.stack([state])
@@ -79,13 +76,11 @@ class RlCubeSolver(object):
             action_idx = T.randint(len(self._cube.ACTIONS), [1])
             return action_idx
 
+    @Timer.decorate
     def _apply_action(self, action):
-        with Timer("step"):
-            self._cube.step(self._cube.ACTIONS[action.item()])
-        with Timer("done"):
-            done = T.tensor(self._cube.is_done())
-        with Timer("state"):
-            next_state = self._get_state_tensor()
+        self._cube.step(self._cube.ACTIONS[action.item()])
+        done = T.tensor(self._cube.is_done())
+        next_state = self._get_state_tensor()
         if not done:
             reward = T.tensor(0.)
         else:
@@ -93,7 +88,7 @@ class RlCubeSolver(object):
 
         return next_state, reward, done
 
-
+    @Timer.decorate
     def _optimize_model(self):
         if len(self._memory) < config.BATCH_SIZE:
             return
@@ -117,8 +112,4 @@ class RlCubeSolver(object):
         state = self._cube.get_state()
         state = self._transform_f(state)
         return state
-
-
-
-
 
