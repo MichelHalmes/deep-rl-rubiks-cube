@@ -38,7 +38,7 @@ class RlCubeSolver(object):
             metrics = self._train_episode(episode)
             metrics.update(**Timer.get_times_and_reset())
             writer.write(metrics)
-            print(episode, metrics["duration"], end="\r")
+            print(episode, metrics["duration"], "\t", end="\r")
             if episode % config.TARGET_UPDATE == 0:
                 self._target_net.load_state_dict(self._policy_net.state_dict())
 
