@@ -7,7 +7,7 @@ from torch import optim
 import torch.nn.functional as F
 
 from .dqn import DQN, get_transform_f
-from .utils import ReplayMemory, Schedule, MetricsWriter, Timer
+from .utils import ReplayMemory, TrainSchedule, MetricsWriter, Timer
 from . import config
 
 
@@ -33,23 +33,25 @@ class RlCubeSolver(object):
         return policy_net, target_net
 
     def train(self):
-        writer = MetricsWriter()
-        schedule = Schedule()
-        for episode in count():
-            metrics = self._train_episode(episode, schedule)
-            writer.write(metrics)
-            
-            if episode % config.TARGET_UPDATE == 0:
+        train_writer = MetricsWriter("train")
+        eval_writer = MetricsWriter("eval")
+        schedule = TrainSchedule()
+        for train_cfg in schedule.iter_train_configs():
+            metrics = self._train_episode(train_cfg)
+            train_writer.write(metrics)
+            if train_cfg.episode % config.TARGET_UPDATE == 0:
                 self._target_net.load_state_dict(self._policy_net.state_dict())
+            if train_cfg.episode % config.EVAL_STEPS == 0:
+                metrics = self._evaluate_episode(train_cfg)
+                eval_writer.write(metrics)
 
-    def _train_episode(self, episode, schedule):
-        difficulty, epsilon, max_steps = schedule.next_step()
-        self._cube.reset(steps=difficulty)
+    def _train_episode(self, train_cfg):
+        self._cube.reset(steps=train_cfg.difficulty)
         # TODO: maybe add temporal dimension to state
 
         state = self._get_state_tensor()
-        for t in range(max_steps):
-            action = self._select_action(state, epsilon)
+        for t in range(train_cfg.max_steps):
+            action = self._select_action(state, train_cfg.epsilon)
             
             next_state, reward, done = self._apply_action(action)
             self._memory.push(state, action, next_state, reward, done)
@@ -62,7 +64,7 @@ class RlCubeSolver(object):
         else:
             duration = 0
 
-        return {"_episode": episode, "duration": duration, "done": int(done), "difficulty": difficulty, "epsilon": epsilon}
+        return {**train_cfg._asdict(), "duration": duration, "done": int(done)}
 
     @Timer.decorate
     def _select_action(self, state, epsilon):
@@ -111,4 +113,20 @@ class RlCubeSolver(object):
         state = self._cube.get_state()
         state = self._transform_f(state)
         return state
+
+    def _evaluate_episode(self, train_cfg):
+        self._cube.reset(steps=train_cfg.difficulty)
+
+        state = self._get_state_tensor()
+        for t in range(train_cfg.max_steps):
+            action = self._select_action(state, epsilon=0.)  # Always evaluate on Policys
+            state, _, done = self._apply_action(action)
+        
+            if done:
+                duration = t+1
+                break
+        else:
+            duration = 0
+
+        return {**train_cfg._asdict(), "duration": duration, "done": int(done)}
 

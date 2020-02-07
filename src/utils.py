@@ -37,6 +37,7 @@ class ReplayMemory(object):
     def __len__(self):
         return len(self._memory)
 
+
 def fibonacci(n):
     if n <= 1:
         return n
@@ -45,13 +46,23 @@ def fibonacci(n):
         prev, cur = cur, prev + cur
     return cur
 
+TrainCfg = namedtuple("TrainCfg", ["episode", "difficulty", "epsilon", "max_steps"])
 
-class Schedule(object):
+class TrainSchedule(object):
 
     def __init__(self):
+        self._episode = 0
         self._difficulty = 1
         self._diff_curr_steps = 0
         self._diff_max_steps = config.DIFFICULTY_STEPS
+
+    def iter_train_configs(self):
+        while True:
+            yield self._get_next_step()
+
+    def _next_episode(self):
+        self._episode += 1
+        return self._episode
 
     def _next_difficulty(self):
         # At every difficulty, we remain DIFFICULTY_STEPS longer in the level
@@ -71,36 +82,37 @@ class Schedule(object):
     def _next_max_steps(self):
         return config.MAX_STEPS * int(math.sqrt(self._difficulty))
 
-    def next_step(self):
+    def _get_next_step(self):
+        episode = self._next_episode()
         difficulty = self._next_difficulty()
         epsilon = self._next_epsilon()
         max_steps = self._next_max_steps()
-        return difficulty, epsilon, max_steps
+        return TrainCfg(episode, difficulty, epsilon, max_steps)
 
 
 class MetricsWriter(object):
     _MA_NAMES = ["duration", "done"]
 
-    def __init__(self):
-        stats_filename = datetime.now().strftime('%Y%m%d_%H%M') + ".csv"
+    def __init__(self, suffix):
+        stats_filename = datetime.now().strftime('%Y%m%d_%H%M') + f"_{suffix}.csv"
         stats_path = path.join(config.DATA_DIR, "stats", stats_filename)
         self._csv_file = open(stats_path, "w")
         self._csv_writer =  None
         self._ma_metrics = None
 
     def write(self, metrics):
-        self._update_timer_metrics(metrics)
         if not self._csv_writer:  # First call
             self._ma_metrics = self._init_ma_metrics(metrics)
             self._csv_writer = self._init_writer(metrics.keys())
 
+        self._update_timer_metrics(metrics)
         self._update_ma_metrics(metrics)
         self._csv_writer.writerow(metrics)
         self._csv_file.flush()
         self._print_metrics(metrics)
 
     def _init_writer(self, field_names):
-        field_names = sorted(list(field_names) + list(self._ma_metrics.keys()))
+        field_names = list(field_names) + list(self._ma_metrics.keys()) + list(Timer.get_times_and_reset().keys())
         writer = csv.DictWriter(self._csv_file, fieldnames=field_names)
         writer.writeheader()
         return writer
@@ -125,7 +137,7 @@ class MetricsWriter(object):
         duration_done_ma = round(metrics["duration_ma"] / metrics["done_ma"], 3) \
                             if metrics["done_ma"] > .001 else None
         print_metrics = [
-            f"episode: {metrics['_episode']:4}", 
+            f"episode: {metrics['episode']:4}", 
             f"level: {metrics['difficulty']:2}", 
             f"{100.*metrics['done_ma']:.0f}% success", 
             f"in {duration_done_ma} steps"
