@@ -37,9 +37,8 @@ class RlCubeSolver(object):
         schedule = Schedule()
         for episode in count():
             metrics = self._train_episode(episode, schedule)
-            metrics.update(**Timer.get_times_and_reset())
             writer.write(metrics)
-            print(episode, metrics["duration"], "\t", end="\r")
+            
             if episode % config.TARGET_UPDATE == 0:
                 self._target_net.load_state_dict(self._policy_net.state_dict())
 
@@ -61,9 +60,9 @@ class RlCubeSolver(object):
                 duration = t+1
                 break
         else:
-            duration = 2*max_steps
+            duration = 0
 
-        return {"_episode": episode, "duration": duration, "difficulty": difficulty, "epsilon": epsilon}
+        return {"_episode": episode, "duration": duration, "done": int(done), "difficulty": difficulty, "epsilon": epsilon}
 
     @Timer.decorate
     def _select_action(self, state, epsilon):

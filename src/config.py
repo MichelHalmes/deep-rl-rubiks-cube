@@ -14,5 +14,5 @@ MEMORY_MAX_SIZE = 10000
 
 # DATA
 DATA_DIR = "./data"
-MA_ALPHA = .8
+MA_ALPHA = .9
 

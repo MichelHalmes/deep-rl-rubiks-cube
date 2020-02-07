@@ -79,7 +79,7 @@ class Schedule(object):
 
 
 class MetricsWriter(object):
-    _MA_NAMES = ["duration"]
+    _MA_NAMES = ["duration", "done"]
 
     def __init__(self):
         stats_filename = datetime.now().strftime('%Y%m%d_%H%M') + ".csv"
@@ -88,10 +88,16 @@ class MetricsWriter(object):
         self._csv_writer =  None
         self._ma_metrics = None
 
-    def _init_ma_metrics(self, metrics):
-        ma_metrics = {f"{name}_ma": metrics[name]
-                        for name in self._MA_NAMES}
-        return ma_metrics
+    def write(self, metrics):
+        self._update_timer_metrics(metrics)
+        if not self._csv_writer:  # First call
+            self._ma_metrics = self._init_ma_metrics(metrics)
+            self._csv_writer = self._init_writer(metrics.keys())
+
+        self._update_ma_metrics(metrics)
+        self._csv_writer.writerow(metrics)
+        self._csv_file.flush()
+        self._print_metrics(metrics)
 
     def _init_writer(self, field_names):
         field_names = sorted(list(field_names) + list(self._ma_metrics.keys()))
@@ -99,13 +105,10 @@ class MetricsWriter(object):
         writer.writeheader()
         return writer
 
-    def write(self, metrics):
-        if not self._csv_writer:
-            self._ma_metrics = self._init_ma_metrics(metrics)
-            self._csv_writer = self._init_writer(metrics.keys())
-        self._update_ma_metrics(metrics)
-        self._csv_writer.writerow(metrics)
-        self._csv_file.flush()
+    def _init_ma_metrics(self, metrics):
+        ma_metrics = {f"{name}_ma": metrics[name]
+                        for name in self._MA_NAMES}
+        return ma_metrics
 
     def _update_ma_metrics(self, metrics):
         for name in self._MA_NAMES:
@@ -113,6 +116,22 @@ class MetricsWriter(object):
                         + config.MA_ALPHA * self._ma_metrics[f"{name}_ma"]
             self._ma_metrics[f"{name}_ma"] = round(ma_value, 3)
         metrics.update(self._ma_metrics)
+
+    def _update_timer_metrics(self, metrics):
+        metrics.update(**Timer.get_times_and_reset())
+
+    def _print_metrics(self, metrics):
+        # An estimate of the duration for the episodes that were completed successfully
+        duration_done_ma = round(metrics["duration_ma"] / metrics["done_ma"], 3) \
+                            if metrics["done_ma"] > .001 else None
+        print_metrics = [
+            f"episode: {metrics['_episode']:4}", 
+            f"level: {metrics['difficulty']:2}", 
+            f"{100.*metrics['done_ma']:.0f}% success", 
+            f"in {duration_done_ma} steps"
+        ]
+        print("\t".join(print_metrics), end="\r")
+
 
 class Timer(ContextDecorator):
     """ USAGE:
