@@ -58,7 +58,7 @@ class TrainSchedule(object):
 
     def iter_train_configs(self):
         while True:
-            yield self._get_next_step()
+            yield self._get_next_params()
 
     def _next_episode(self):
         self._episode += 1
@@ -70,19 +70,19 @@ class TrainSchedule(object):
         if self._diff_curr_steps == self._diff_max_steps:
             self._difficulty += 1
             self._diff_curr_steps = 0
-            self._diff_max_steps = config.DIFFICULTY_STEPS*self._difficulty
+            self._diff_max_steps = config.DIFFICULTY_STEPS * int(self._difficulty**1.5)
 
         return self._difficulty
 
     def _next_epsilon(self):
         decay = 1. - (self._diff_curr_steps / self._diff_max_steps)
-        epsilon = config.EPS_END + (config.EPS_START - config.EPS_END) * decay**.7
+        epsilon = config.EPS_END + (config.EPS_START - config.EPS_END) * decay**.8
         return round(epsilon, 3)
 
     def _next_max_steps(self):
         return config.MAX_STEPS * int(math.sqrt(self._difficulty))
 
-    def _get_next_step(self):
+    def _get_next_params(self):
         episode = self._next_episode()
         difficulty = self._next_difficulty()
         epsilon = self._next_epsilon()
@@ -134,15 +134,15 @@ class MetricsWriter(object):
 
     def _print_metrics(self, metrics):
         # An estimate of the duration for the episodes that were completed successfully
-        duration_done_ma = round(metrics["duration_ma"] / metrics["done_ma"], 3) \
+        duration_done_ma = round(metrics["duration_ma"] / metrics["done_ma"], 1) \
                             if metrics["done_ma"] > .001 else None
         print_metrics = [
             f"episode: {metrics['episode']:4}", 
             f"level: {metrics['difficulty']:2}", 
-            f"{100.*metrics['done_ma']:.0f}% success", 
+            f"{100.*metrics['done_ma']:2.0f}% success", 
             f"in {duration_done_ma} steps"
         ]
-        print("\t".join(print_metrics), end="\r")
+        print("\t".join(print_metrics), "   ", end="\r")
 
 
 class Timer(ContextDecorator):

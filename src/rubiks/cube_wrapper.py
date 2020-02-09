@@ -13,6 +13,7 @@ Sides = namedtuple("Sides", ["right", "left", "up", "down", "front", "back"])
 _SOLVED_CUBE_STR = "OOOOOOOOOYYYWWWGGGBBBYYYWWWGGGBBBYYYWWWGGGBBBRRRRRRRRR"
 _ACTIONS = ["L", "R", "U", "D", "F", "B", "M", "E", "S", "X", "Y", "Z"]
 
+random.seed(0)
 
 class MyCube(object):
     """ Adapts the rubiks cube to our purposes """

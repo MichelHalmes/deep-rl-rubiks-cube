@@ -5,8 +5,7 @@ import torch.nn as nn
 import numpy as np
 
 from .utils import product
-
-
+from . import config
 
 def get_transform_f(colors):
     lookup_table = {col: idx for idx, col in enumerate(colors)}
@@ -23,24 +22,41 @@ def get_transform_f(colors):
 
     return transform_state
 
+
+def flatten(tensor):
+    return tensor.view([tensor.size(0), -1])
+
+
+class FeedForwardBlock(nn.Module):
+
+    def __init__(self, input_size, output_size):
+        super().__init__()
+        self.hidden = nn.Linear(input_size, output_size)
+        self.ln = nn.LayerNorm(output_size)
+
+    def forward(self, x):
+        return F.selu(self.ln(self.hidden(x)))
+
+
+
 class DQN(nn.Module):
 
     def __init__(self, input_shape, output_size):
         super().__init__()
-        flatten_size = product(input_shape)
-        self.hidden_1 = nn.Linear(flatten_size, 512)
-        self.ln_1 = nn.LayerNorm(512)
-        self.hidden_2 = nn.Linear(512, 256)
-        self.ln_2 = nn.LayerNorm(256)
-        self.hidden_3 = nn.Linear(256, 128)
-        self.ln_3 = nn.LayerNorm(128)
-        self.head = nn.Linear(128, output_size)
+        ffwd_layers = []
+        in_width = product(input_shape)  # Size after Flatten
+        for out_width in config.LAYER_SIZES:
+            ffwd_layers.append(
+                FeedForwardBlock(in_width, out_width))
+            in_width = out_width
+        self._ffwd_layers = nn.Sequential(*ffwd_layers)
+
+        self._head = nn.Linear(in_width, output_size)
 
     def forward(self, x):
         assert len(x.shape) == 5, f"Expected (B,N,N,C,C), got: {x.shape}"
-        x = x.view([x.size(0), -1])  # Flatten
-        x = F.relu(self.ln_1(self.hidden_1(x)))
-        x = F.relu(self.ln_2(self.hidden_2(x)))
-        x = F.relu(self.ln_3(self.hidden_3(x)))
+        y = flatten(x)
+        for layer in self._ffwd_layers:
+            y = layer(y)
 
-        return F.softplus(self.head(x))  # All rewards and state actions must be >= 0
+        return F.softplus(self._head(y))  # All rewards and state actions must be >= 0

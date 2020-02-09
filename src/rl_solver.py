@@ -30,6 +30,7 @@ class RlCubeSolver(object):
         target_net = DQN(input_shape, output_size).to(device)
         target_net.load_state_dict(policy_net.state_dict())
         target_net.eval()
+        print(policy_net)
         return policy_net, target_net
 
     def train(self):
