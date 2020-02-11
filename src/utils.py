@@ -9,15 +9,15 @@ import math
 
 import torch as T
 
-from . import config
+from . import config as cfg
 
 Transition = namedtuple("Transition",
                         ["state", "action", "next_state", "reward", "done"])
 
 
-class ReplayMemory(object):
+class ReplayBuffer(object):
 
-    def __init__(self, max_size=config.MEMORY_MAX_SIZE):
+    def __init__(self, max_size=cfg.MEMORY_MAX_SIZE):
         self._max_size = max_size
         self._memory = []
         self._idx = 0
@@ -54,10 +54,10 @@ class TrainSchedule(object):
         self._episode = 0
         self._difficulty = 1
         self._diff_curr_steps = 0
-        self._diff_max_steps = config.DIFFICULTY_STEPS
+        self._diff_max_steps = cfg.DIFFICULTY_STEPS
 
     def iter_train_configs(self):
-        while True:
+        for _ in range(cfg.MAX_EPISODES):
             yield self._get_next_params()
 
     def _next_episode(self):
@@ -70,17 +70,17 @@ class TrainSchedule(object):
         if self._diff_curr_steps == self._diff_max_steps:
             self._difficulty += 1
             self._diff_curr_steps = 0
-            self._diff_max_steps = config.DIFFICULTY_STEPS * int(self._difficulty**1.5)
+            self._diff_max_steps = cfg.DIFFICULTY_STEPS * int(self._difficulty**cfg.DIFFICULTY_EXP)
 
         return self._difficulty
 
     def _next_epsilon(self):
         decay = 1. - (self._diff_curr_steps / self._diff_max_steps)
-        epsilon = config.EPS_END + (config.EPS_START - config.EPS_END) * decay**.8
+        epsilon = cfg.EPS_END + (cfg.EPS_START - cfg.EPS_END) * decay**cfg.EPS_EXP
         return round(epsilon, 3)
 
     def _next_max_steps(self):
-        return config.MAX_STEPS * int(math.sqrt(self._difficulty))
+        return cfg.MAX_STEPS * int(math.sqrt(self._difficulty))
 
     def _get_next_params(self):
         episode = self._next_episode()
@@ -95,7 +95,7 @@ class MetricsWriter(object):
 
     def __init__(self, suffix):
         stats_filename = datetime.now().strftime('%Y%m%d_%H%M') + f"_{suffix}.csv"
-        stats_path = path.join(config.DATA_DIR, "stats", stats_filename)
+        stats_path = path.join(cfg.DATA_DIR, "stats", stats_filename)
         self._csv_file = open(stats_path, "w")
         self._csv_writer =  None
         self._ma_metrics = None
@@ -124,8 +124,8 @@ class MetricsWriter(object):
 
     def _update_ma_metrics(self, metrics):
         for name in self._MA_NAMES:
-            ma_value = (1.- config.MA_ALPHA) * metrics[name] \
-                        + config.MA_ALPHA * self._ma_metrics[f"{name}_ma"]
+            ma_value = (1.- cfg.MA_ALPHA) * metrics[name] \
+                        + cfg.MA_ALPHA * self._ma_metrics[f"{name}_ma"]
             self._ma_metrics[f"{name}_ma"] = round(ma_value, 3)
         metrics.update(self._ma_metrics)
 

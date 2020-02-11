@@ -7,7 +7,7 @@ from torch import optim
 import torch.nn.functional as F
 
 from .dqn import DQN, get_transform_f
-from .utils import ReplayMemory, TrainSchedule, MetricsWriter, Timer
+from .utils import ReplayBuffer, TrainSchedule, MetricsWriter, Timer
 from . import config
 
 
@@ -19,8 +19,8 @@ class RlCubeSolver(object):
         self._cube = cube
         self._transform_f = get_transform_f(cube.COLORS)
         self._policy_net, self._target_net = self._init_networks(cube)
-        self._optimizer = optim.Adam(self._policy_net.parameters())
-        self._memory = ReplayMemory()
+        self._optimizer = optim.Adam(self._policy_net.parameters(), config.LEARNING_RATE)
+        self._memory = ReplayBuffer()
 
     def _init_networks(self, cube):
         input_shape = [cube.SIZE, cube.SIZE, 6, len(cube.COLORS)]
