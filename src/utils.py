@@ -3,13 +3,15 @@ from collections import namedtuple, defaultdict
 from os import path
 from datetime import datetime
 import csv
-from contextlib import ContextDecorator
+from contextlib import ContextDecorator, contextmanager
 import time
 import math
 
 import torch as T
 
 from . import config as cfg
+
+
 
 Transition = namedtuple("Transition",
                         ["state", "action", "next_state", "reward", "done"])
@@ -192,4 +194,14 @@ def product(iterable):
     return p
 
 
+@contextmanager
+def evaluating(net):
+    """Temporarily switch to evaluation mode."""
+    istrain = net.training
+    try:
+        net.eval()
+        yield net
+    finally:
+        if istrain:
+            net.train()
 

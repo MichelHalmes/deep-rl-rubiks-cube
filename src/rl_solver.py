@@ -7,7 +7,7 @@ from torch import optim
 import torch.nn.functional as F
 
 from .dqn import DQN, get_transform_f
-from .utils import ReplayBuffer, TrainSchedule, MetricsWriter, Timer
+from .utils import ReplayBuffer, TrainSchedule, MetricsWriter, Timer, evaluating
 from . import config
 
 
@@ -53,11 +53,11 @@ class RlCubeSolver(object):
         state = self._get_state_tensor()
         for t in range(train_cfg.max_steps):
             action = self._select_action(state, train_cfg.epsilon)
-            
+
             next_state, reward, done = self._apply_action(action)
             self._memory.push(state, action, next_state, reward, done)
             state = next_state
-            
+
             self._optimize_model()
             if done:
                 duration = t+1
@@ -71,7 +71,7 @@ class RlCubeSolver(object):
     def _select_action(self, state, epsilon):
         if random.random() > epsilon:
             state_batch = T.stack([state])
-            with T.no_grad():
+            with evaluating(self._policy_net), T.no_grad():
                 _, action_idx = self._policy_net(state_batch).max(1)
             return action_idx
         else:
@@ -95,14 +95,14 @@ class RlCubeSolver(object):
         if len(self._memory) < config.BATCH_SIZE:
             return
         batch = self._memory.sample(config.BATCH_SIZE)
-        
+
         non_final_mask = batch.done.logical_not()
         next_state_value = T.zeros(config.BATCH_SIZE)  # Use 0 value for final state
         next_state_value[non_final_mask] = self._target_net(batch.next_state[non_final_mask]).max(1)[0].detach()  # V(s') = max_a[Q(s',a)]
         expected_state_action_values = (next_state_value * config.GAMMA) + batch.reward
 
         state_action_values = self._policy_net(batch.state).gather(1, batch.action).squeeze(1)  # Q(s,a)
-    
+
         loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)  # Huber loss
         self._optimizer.zero_grad()
         loss.backward()
@@ -122,7 +122,7 @@ class RlCubeSolver(object):
         for t in range(train_cfg.max_steps):
             action = self._select_action(state, epsilon=0.)  # Always evaluate on Policys
             state, _, done = self._apply_action(action)
-        
+
             if done:
                 duration = t+1
                 break
