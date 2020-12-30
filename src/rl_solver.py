@@ -45,6 +45,7 @@ class RlCubeSolver(object):
             if train_cfg.episode % config.EVAL_STEPS == 0:
                 metrics = self._evaluate_episode(train_cfg)
                 eval_writer.write(metrics)
+                print(end="\n")
 
     def _train_episode(self, train_cfg):
         self._cube.reset(steps=train_cfg.difficulty)
@@ -86,7 +87,7 @@ class RlCubeSolver(object):
         if not done:
             reward = T.tensor(0.)
         else:
-            reward = T.tensor(1000.)
+            reward = T.tensor(1.)
 
         return next_state, reward, done
 

@@ -18,7 +18,7 @@ MEMORY_MAX_SIZE = 10000
 
 # DQN
 CONV_NB_KERNELS = [256, 32]  # for 1x1 convolutions
-LAYER_SIZES = [512, 512, 512, 512, 512]
+LAYER_SIZES = [512, 512, 512]
 
 # DATA
 DATA_DIR = "./data"

@@ -40,7 +40,7 @@ class OneByOneConvLayer(nn.Module):
         # self._bn = nn.BatchNorm2d(out_channels)
 
     def forward(self, x):
-        return F.selu(self._conv(x))
+        return F.relu(self._conv(x))
 
 
 def flatten(tensor):
@@ -51,14 +51,14 @@ class FullyConnectedLayer(nn.Module):
 
     def __init__(self, input_size, output_size):
         super().__init__()
-        self._hidden = nn.Linear(input_size, output_size)
+        self._hidden = nn.Linear(input_size, output_size, bias=False)
         self._ln = nn.LayerNorm(output_size)
 
     def forward(self, x):
         if self._hidden.in_features == self._hidden.out_features:  # Use residual connections
             return x + F.relu(self._ln(self._hidden(x)))
         else:
-            return F.selu(self._ln(self._hidden(x)))
+            return F.relu(self._ln(self._hidden(x)))
 
 
 class DQN(nn.Module):
@@ -97,4 +97,4 @@ class DQN(nn.Module):
         y = flatten(y)
         y = self._fc_layers(y)
 
-        return F.softplus(self._head(y))  # All rewards and state actions must be >= 0
+        return F.sigmoid(self._head(y))  # All rewards and state actions must be >= 0
