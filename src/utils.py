@@ -14,12 +14,13 @@ from . import config as cfg
 
 
 Transition = namedtuple("Transition",
-                        ["state", "action", "next_state", "reward", "done"])
+        ["state", "action", "next_state", "reward", "done", "action_probas", "state_value"],
+        defaults=[T.Tensor([float("NaN")]), T.Tensor([float("NaN")])])
 
 
 class ReplayBuffer(object):
 
-    def __init__(self, max_size=cfg.MEMORY_MAX_SIZE):
+    def __init__(self, max_size=999999999):
         self._max_size = max_size
         self._memory = []
         self._idx = 0
@@ -38,6 +39,10 @@ class ReplayBuffer(object):
 
     def __len__(self):
         return len(self._memory)
+
+    def all(self):
+        batch = Transition(*(T.stack(items) for items in zip(*self._memory)))
+        return batch
 
 
 def fibonacci(n):
@@ -139,9 +144,9 @@ class MetricsWriter(object):
         duration_done_ma = round(metrics["duration_ma"] / metrics["done_ma"], 1) \
                             if metrics["done_ma"] > .001 else None
         print_metrics = [
-            f"episode: {metrics['episode']:4}", 
-            f"level: {metrics['difficulty']:2}", 
-            f"{100.*metrics['done_ma']:2.0f}% success", 
+            f"episode: {metrics['episode']:4}",
+            f"level: {metrics['difficulty']:2}",
+            f"{100.*metrics['done_ma']:2.0f}% success",
             f"in {duration_done_ma} steps"
         ]
         print("\t".join(print_metrics), "   ", end="\r")
@@ -151,7 +156,7 @@ class Timer(ContextDecorator):
     """ USAGE:
         with Timer("my_name"):
             <do_things
-        
+
         @Timer.decorate
         def my_func():...
 

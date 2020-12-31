@@ -21,7 +21,7 @@ setup_args = {
     "python_requires": ">= 3",
     "description": "Solving a Rubik's-cube using Deep Reinforcement Learning and pyTorch",
     "long_description": long_description,
-    "url": "https://github.com/MichelHalmes/pytorch-vedai",
+    "url": "https://github.com/MichelHalmes/deep-rl-rubiks-cube",
     "packages": find_packages(include=["src"]),
     "package_dir": {"src": "src"},
     "package_data": {"": ["*.md", "version"]},

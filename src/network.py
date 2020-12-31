@@ -61,9 +61,28 @@ class FullyConnectedLayer(nn.Module):
             return F.relu(self._ln(self._hidden(x)))
 
 
-class DQN(nn.Module):
+class Head(nn.Module):
 
-    def __init__(self, input_shape, output_size):
+    def __init__(self, input_size, num_actions, actor_critic):
+        super().__init__()
+        self._actor_critic = actor_critic
+        self._actions = nn.Linear(input_size, num_actions)
+        if actor_critic:
+            self._value = nn.Linear(input_size, 1)
+
+    def forward(self, x):
+        if self._actor_critic:
+            action_probas = F.softmax(self._actions(x))
+            state_value = F.sigmoid(self._value(x))
+            return action_probas, state_value
+        else:
+            q_values = F.sigmoid(self._actions(x))  # All rewards and state actions must be >= 0
+            return q_values
+
+
+class Network(nn.Module):
+
+    def __init__(self, input_shape, num_actions, actor_critic=False):
         super().__init__()
         assert input_shape == [3, 3, 6, 6]
         # 1x1 convolutions over 6x6x9 "image", the channels represent thus the 9 kubies per side
@@ -71,7 +90,7 @@ class DQN(nn.Module):
         self._conv_layers = self._init_conv_layers(in_channels=3*3)
         in_width = 6*6*cfg.CONV_NB_KERNELS[-1]  # Size after Flatten
         self._fc_layers = self._init_fc_layers(in_width)
-        self._head = nn.Linear(cfg.LAYER_SIZES[-1], output_size)
+        self._head = Head(cfg.LAYER_SIZES[-1], num_actions, actor_critic)
 
     def _init_conv_layers(self, in_channels):
         conv_layers = []
@@ -97,4 +116,4 @@ class DQN(nn.Module):
         y = flatten(y)
         y = self._fc_layers(y)
 
-        return F.sigmoid(self._head(y))  # All rewards and state actions must be >= 0
+        return self._head(y)

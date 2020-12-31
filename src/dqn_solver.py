@@ -6,28 +6,28 @@ import torch as T
 from torch import optim
 import torch.nn.functional as F
 
-from .dqn import DQN, get_transform_f
+from .network import Network, get_transform_f
 from .utils import ReplayBuffer, TrainSchedule, MetricsWriter, Timer, evaluating
-from . import config
+from . import config as cfg
 
 
 device = T.device("cuda" if T.cuda.is_available() else "cpu")
 
-class RlCubeSolver(object):
+class DqnCubeSolver(object):
 
     def __init__(self, cube):
         self._cube = cube
         self._transform_f = get_transform_f(cube.COLORS)
         self._policy_net, self._target_net = self._init_networks(cube)
-        self._optimizer = optim.Adam(self._policy_net.parameters(), config.LEARNING_RATE)
-        self._memory = ReplayBuffer()
+        self._optimizer = optim.Adam(self._policy_net.parameters(), cfg.LEARNING_RATE)
+        self._memory = ReplayBuffer(cfg.DQN_MEMORY_MAX_SIZE)
 
     def _init_networks(self, cube):
         input_shape = [cube.SIZE, cube.SIZE, 6, len(cube.COLORS)]
-        output_size = len(cube.ACTIONS)
+        num_actions = len(cube.ACTIONS)
 
-        policy_net = DQN(input_shape, output_size).to(device)
-        target_net = DQN(input_shape, output_size).to(device)
+        policy_net = Network(input_shape, num_actions).to(device)
+        target_net = Network(input_shape, num_actions).to(device)
         target_net.load_state_dict(policy_net.state_dict())
         target_net.eval()
         print(policy_net)
@@ -40,9 +40,9 @@ class RlCubeSolver(object):
         for train_cfg in schedule.iter_train_configs():
             metrics = self._train_episode(train_cfg)
             train_writer.write(metrics)
-            if train_cfg.episode % config.TARGET_UPDATE == 0:
+            if train_cfg.episode % cfg.DQN_TARGET_UPDATE == 0:
                 self._target_net.load_state_dict(self._policy_net.state_dict())
-            if train_cfg.episode % config.EVAL_STEPS == 0:
+            if train_cfg.episode % cfg.EVAL_STEPS == 0:
                 metrics = self._evaluate_episode(train_cfg)
                 eval_writer.write(metrics)
                 print(end="\n")
@@ -93,14 +93,14 @@ class RlCubeSolver(object):
 
     @Timer.decorate
     def _optimize_model(self):
-        if len(self._memory) < config.BATCH_SIZE:
+        if len(self._memory) < cfg.DQN_BATCH_SIZE:
             return
-        batch = self._memory.sample(config.BATCH_SIZE)
+        batch = self._memory.sample(cfg.DQN_BATCH_SIZE)
 
         non_final_mask = batch.done.logical_not()
-        next_state_value = T.zeros(config.BATCH_SIZE)  # Use 0 value for final state
+        next_state_value = T.zeros(cfg.DQN_BATCH_SIZE)  # Use 0 value for final state
         next_state_value[non_final_mask] = self._target_net(batch.next_state[non_final_mask]).max(1)[0].detach()  # V(s') = max_a[Q(s',a)]
-        expected_state_action_values = (next_state_value * config.GAMMA) + batch.reward
+        expected_state_action_values = (next_state_value * cfg.GAMMA) + batch.reward
 
         state_action_values = self._policy_net(batch.state).gather(1, batch.action).squeeze(1)  # Q(s,a)
 
@@ -108,7 +108,7 @@ class RlCubeSolver(object):
         self._optimizer.zero_grad()
         loss.backward()
         for param in self._policy_net.parameters():
-            param.grad.data.clamp_(-config.GRADIENT_CLIP, config.GRADIENT_CLIP)
+            param.grad.data.clamp_(-cfg.GRADIENT_CLIP, cfg.GRADIENT_CLIP)
         self._optimizer.step()
 
     def _get_state_tensor(self):
