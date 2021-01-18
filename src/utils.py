@@ -6,16 +6,26 @@ import csv
 from contextlib import ContextDecorator, contextmanager
 import time
 import math
+from dataclasses import dataclass, fields, asdict
 
 import torch as T
 
 from . import config as cfg
 
 
+@dataclass
+class Transition:
+    state: T.Tensor
+    action: T.Tensor
+    next_state: T.Tensor
+    reward: T.Tensor
+    done: T.Tensor
+    action_probas: T.Tensor = T.Tensor([float("NaN")])
+    state_value: T.Tensor = T.Tensor([float("NaN")])
+    target_value: T.Tensor = T.Tensor([float("NaN")])
 
-Transition = namedtuple("Transition",
-        ["state", "action", "next_state", "reward", "done", "action_probas", "state_value"],
-        defaults=[T.Tensor([float("NaN")]), T.Tensor([float("NaN")])])
+    def __iter__(self):
+        return (getattr(self, f.name) for f in fields(self))
 
 
 class ReplayBuffer(object):
