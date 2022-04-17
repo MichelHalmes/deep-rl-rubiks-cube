@@ -16,6 +16,9 @@ from . import config as cfg
 device = T.device("cuda" if T.cuda.is_available() else "cpu")
 
 class PpoCubeSolver(object):
+    """ NOTE: Generally for PPO, actor & critic networks are not shared
+        TODO: use N-step TD-lambda approximation mentioned in paper
+    """
 
     def __init__(self, cube):
         self._cube = cube
